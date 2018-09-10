@@ -36,7 +36,7 @@ type API
 startApp :: IO ()
 startApp = do
   tVar <- atomically $ newTVar []
-  let db = DefaultStore tVar
+  let db = ServerStore tVar
   run 8080 $ app db
 
 app :: (Store a) => a -> Application
@@ -53,3 +53,13 @@ server db = hello
     hello = return "Hello"
     todoAll = liftIO $ UC.all db ReqAll
     todoPost req = liftIO $ UC.add db req
+
+instance Store ServerStore where
+  store (ServerStore db) ds = do
+    liftIO . atomically . modifyTVar db $ (\ts -> ds : ts)
+    print $ "writeTVar in ServerStore: " ++ dsTitle ds
+    return ()
+  fetchAll (ServerStore db) = liftIO $ readTVarIO db
+
+newtype ServerStore =
+  ServerStore (TVar [Ds])

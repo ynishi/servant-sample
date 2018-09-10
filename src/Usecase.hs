@@ -1,7 +1,7 @@
 module Usecase
   ( add
   , Usecase.all
-  , DefaultStore(..)
+  , Ds(..)
   , Req(..)
   , Res(..)
   , ResTodo(..)
@@ -26,30 +26,36 @@ newtype ResTodo = ResTodo
   { resTitle :: String
   }
 
+newtype Ds = DsTodo
+  { dsTitle :: String
+  }
+
 add :: (Store a) => a -> Req -> IO Res
 add st (Req s) = do
-  store st todo
+  store st ds
   return . ResOne . ResTodo . title $ todo
   where
     todo = Todo 0 s
+    ds = DsTodo $ title todo
 
 all :: (Store a) => a -> Req -> IO Res
 all st ReqAll = do
-  todos <- fetchAll st
-  return $ Res $ map (ResTodo . title) todos
+  dsTodos <- fetchAll st
+  return $ Res $ map (ResTodo . dsTitle) dsTodos
 
 class Store a where
-  store :: a -> Todo -> IO ()
+  store :: a -> Ds -> IO ()
   store _ _ = return ()
-  fetchAll :: a -> IO Todos
+  fetchAll :: a -> IO [Ds]
   fetchAll _ = return []
 
+-- DefaultStore is convinient to start
 instance Store DefaultStore where
-  store (DefaultStore db) todo = do
-    liftIO . atomically . modifyTVar db $ (\ts -> todo : ts)
-    print $ "writeTVar: " ++ title todo
+  store (DefaultStore db) ds = do
+    liftIO . atomically . modifyTVar db $ (\ts -> ds : ts)
+    print $ "writeTVar: " ++ dsTitle ds
     return ()
   fetchAll (DefaultStore db) = liftIO $ readTVarIO db
 
 newtype DefaultStore =
-  DefaultStore (TVar Todos)
+  DefaultStore (TVar [Ds])
